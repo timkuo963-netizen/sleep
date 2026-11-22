@@ -1,0 +1,2407 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>夜眠時數護理紀錄產生器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Custom scrollbar & subtle utility styles */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.35);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.55);
+    }
+    @keyframes remotePulse {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.65); }
+      70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .remote-pulse {
+      animation: remotePulse 1.4s ease-out 2;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased selection:bg-indigo-500 selection:text-white transition-colors duration-200">
+
+  <!-- Top Navigation & Sync Control Header -->
+  <header class="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <!-- Brand Title -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
+            夜眠時數護理紀錄產生器
+          </h1>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">
+            連續四碼極速輸入 · 422～432-4 床位巡房 · 多機聯動
+          </p>
+        </div>
+      </div>
+
+      <!-- Sync Controls & Theme Toggle -->
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Sync Status Badge -->
+        <button
+          type="button"
+          id="sync-status-pill"
+          onclick="openSyncModal()"
+          class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition flex items-center gap-1.5 cursor-pointer"
+          title="點擊設定多台電腦雲端聯動"
+        >
+          <span id="sync-status-dot" class="w-2 h-2 rounded-full bg-amber-500"></span>
+          <span id="sync-status-label">本機同步模式</span>
+        </button>
+
+        <!-- Shift Code -->
+        <div class="flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1">
+          <label for="shift-code-input" class="text-[11px] text-slate-500 dark:text-slate-400 mr-1.5 shrink-0">班別</label>
+          <input
+            id="shift-code-input"
+            type="text"
+            onchange="handleShiftCodeChange(this.value)"
+            class="w-28 sm:w-32 bg-transparent text-xs font-mono font-bold text-slate-800 dark:text-slate-100 focus:outline-hidden"
+            placeholder="ward4-2026-11-22"
+          />
+        </div>
+
+        <!-- Workstation Name -->
+        <div class="hidden sm:flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1">
+          <label for="workstation-input" class="text-[11px] text-slate-500 dark:text-slate-400 mr-1.5 shrink-0">機台</label>
+          <input
+            id="workstation-input"
+            type="text"
+            onchange="handleWorkstationChange(this.value)"
+            class="w-20 bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-hidden"
+            placeholder="護理站A"
+          />
+        </div>
+
+        <!-- Sync Settings Button -->
+        <button
+          type="button"
+          onclick="openSyncModal()"
+          class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 transition cursor-pointer"
+        >
+          ⚙️ 多機聯動設定
+        </button>
+
+        <!-- Dark/Light Theme Toggle -->
+        <button
+          type="button"
+          id="theme-toggle-btn"
+          onclick="toggleThemeMode()"
+          class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 transition cursor-pointer"
+        >
+          ☀️ 日間模式
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-5">
+
+    <!-- Section 1: 34-Bed Ward Grid (422 ~ 432-4) -->
+    <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-xs space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+            1. 病房床位快速點選板（422 ～ 432-4）
+          </h2>
+          <span id="ward-progress-pill" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30">
+            已完成 0 / 34 床
+          </span>
+          <span id="ward-counts-detail" class="text-xs text-slate-500 dark:text-slate-400">
+            已記錄 0 · 空床 0 · 未填 34
+          </span>
+        </div>
+
+        <!-- Filter Pills -->
+        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs">
+          <button type="button" data-filter="all" onclick="setBedFilter('all')" class="bed-filter-btn px-2.5 py-1 rounded-lg font-semibold bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs cursor-pointer">
+            全部 (34)
+          </button>
+          <button type="button" data-filter="unfilled" onclick="setBedFilter('unfilled')" class="bed-filter-btn px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer">
+            未填寫
+          </button>
+          <button type="button" data-filter="recorded" onclick="setBedFilter('recorded')" class="bed-filter-btn px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer">
+            已記錄
+          </button>
+          <button type="button" data-filter="empty" onclick="setBedFilter('empty')" class="bed-filter-btn px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer">
+            空床
+          </button>
+        </div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+        <div id="ward-progress-bar" class="h-full bg-gradient-to-r from-indigo-500 via-cyan-500 to-emerald-500 transition-all duration-300" style="width: 0%"></div>
+      </div>
+
+      <!-- Room-Grouped 34-Bed Grid -->
+      <div id="ward-room-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Active Bed Status & Quick Actions -->
+      <div class="pt-1 flex flex-wrap items-center justify-between gap-2.5 border-t border-slate-100 dark:border-slate-800">
+        <div class="flex flex-wrap items-center gap-2 min-w-0">
+          <span class="px-3 py-1 rounded-xl bg-indigo-600 text-white font-mono text-xs sm:text-sm font-bold shrink-0">
+            目前編輯床位：<span id="active-bed-label">422</span>
+          </span>
+          <span id="active-bed-hint" class="text-xs text-slate-600 dark:text-slate-300">
+            尚未填寫 — 輸入四碼後按 Enter 自動儲存並跳下一床
+          </span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            id="toggle-empty-bed-btn"
+            onclick="toggleActiveBedEmpty()"
+            class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition cursor-pointer"
+          >
+            🛏️ 標記空床
+          </button>
+          <button
+            type="button"
+            onclick="advanceToNextUnfilledBed(true)"
+            class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition cursor-pointer"
+          >
+            跳下一未填床 ➔
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Two-Column Workspace -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+      <!-- Left Column: Input, Behavior Tags, Collapsible Timeline (7 cols) -->
+      <div class="lg:col-span-7 space-y-4">
+
+        <!-- Card A: Continuous 4-Digit Rapid Input -->
+        <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-3.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+              2. 連續四碼極速輸入
+            </h2>
+
+            <!-- Input Mode Tabs -->
+            <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs">
+              <button
+                type="button"
+                id="mode-tab-sleep"
+                onclick="setInputMode('sleep')"
+                class="px-2.5 py-1 rounded-lg font-bold bg-indigo-600 text-white shadow-2xs transition cursor-pointer"
+              >
+                模式 A：睡眠起訖
+              </button>
+              <button
+                type="button"
+                id="mode-tab-interruption"
+                onclick="setInputMode('interruption')"
+                class="px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
+              >
+                模式 B：僅輸中斷
+              </button>
+            </div>
+          </div>
+
+          <!-- Mode Explanation & Preset Examples -->
+          <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <p id="mode-helper-text">
+              留空＝<span class="font-semibold text-slate-700 dark:text-slate-200">21:00～06:30 夜安睡</span>；輸入奇數組四碼（如 <code class="font-mono text-indigo-500">0030</code>）自動補齊 <code class="font-mono">06:30</code> 醒來。
+            </p>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button type="button" onclick="applyQuickPreset('full')" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium cursor-pointer">
+                ✨ 夜安睡
+              </button>
+              <button type="button" onclick="applyQuickPreset('late')" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium cursor-pointer">
+                🌙 00:30晚入睡
+              </button>
+              <button type="button" onclick="applyQuickPreset('wake2')" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium cursor-pointer">
+                ⚡ 兩次夜醒
+              </button>
+            </div>
+          </div>
+
+          <!-- Large Monospace 4-Digit Input Box -->
+          <div class="relative">
+            <input
+              id="rapid-digit-input"
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              autofocus
+              placeholder="輸入四碼如 2100010001300630 或 0030（按 Enter 儲存跳下一床）"
+              class="w-full pl-4 pr-20 py-3.5 sm:py-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border-2 border-slate-300 dark:border-slate-700 focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/15 focus:outline-hidden text-xl sm:text-3xl font-bold font-mono tracking-[0.12em] text-slate-900 dark:text-white placeholder:text-xs sm:placeholder:text-sm placeholder:tracking-normal placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 dark:placeholder:text-slate-500 transition"
+            />
+            <button
+              type="button"
+              onclick="clearRapidInputBox()"
+              class="absolute right-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-xl bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer"
+              title="清空輸入框"
+            >
+              清空
+            </button>
+          </div>
+
+          <!-- Parsed Time Chips Display -->
+          <div id="parsed-chips-bar" class="flex flex-wrap items-center gap-2 min-h-[32px] p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200/80 dark:border-slate-800 text-xs">
+            <!-- Rendered by JS -->
+          </div>
+        </section>
+
+        <!-- Card B: Clinical Behavior Observation Tags -->
+        <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+              3. 臨床行為觀察標籤（可多選）
+            </h2>
+
+            <!-- Target Attachment Tabs -->
+            <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs">
+              <button
+                type="button"
+                data-btarget="interruption"
+                onclick="setBehaviorTarget('interruption')"
+                class="behavior-target-btn px-2.5 py-1 rounded-lg font-bold bg-indigo-600 text-white cursor-pointer"
+              >
+                ⚡ 中斷期間
+              </button>
+              <button
+                type="button"
+                data-btarget="late"
+                onclick="setBehaviorTarget('late')"
+                class="behavior-target-btn px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+              >
+                🌙 晚入睡前
+              </button>
+              <button
+                type="button"
+                data-btarget="early"
+                onclick="setBehaviorTarget('early')"
+                class="behavior-target-btn px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+              >
+                🌅 早醒後
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Behaviors Summary Pills -->
+          <div id="selected-behaviors-summary" class="hidden flex-wrap items-center gap-1.5 p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs">
+            <!-- Rendered by JS -->
+          </div>
+
+          <!-- 7 Quick-Tap Chips -->
+          <div class="flex flex-wrap gap-1.5" id="quick-behavior-chips">
+            <!-- Rendered by JS -->
+          </div>
+
+          <!-- Expandable 4-Category Panel + Custom Behavior Input -->
+          <div class="pt-1 flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              id="toggle-more-behaviors-btn"
+              onclick="toggleMoreBehaviors()"
+              class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+            >
+              ＋ 展開完整四大分類行為選項
+            </button>
+
+            <div class="flex items-center gap-1.5 flex-1 sm:flex-initial justify-end">
+              <input
+                id="custom-behavior-input"
+                type="text"
+                placeholder="自訂行為描述..."
+                onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomBehavior();}"
+                class="w-36 sm:w-44 px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs focus:border-indigo-500 focus:outline-hidden"
+              />
+              <button
+                type="button"
+                onclick="addCustomBehavior()"
+                class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-bold cursor-pointer"
+              >
+                ＋加入
+              </button>
+            </div>
+          </div>
+
+          <!-- 4-Category Expanded Grid -->
+          <div id="more-behaviors-panel" class="hidden grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+            <!-- Rendered by JS -->
+          </div>
+        </section>
+
+        <!-- Card C: Collapsible 30-Min Timeline & Exact-Minute Fine-Tuning -->
+        <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+          <button
+            type="button"
+            onclick="toggleTimelineAccordion()"
+            class="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/60 transition cursor-pointer"
+          >
+            <span class="text-sm font-bold text-slate-800 dark:text-slate-100">
+              🕒 展開巡房時間軸與 ±5分 微調
+            </span>
+            <span id="timeline-accordion-arrow" class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              展開 ▼
+            </span>
+          </button>
+
+          <div id="timeline-accordion-body" class="hidden px-4 sm:px-5 pb-4 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-4">
+            <!-- 24-Slot Click & Drag Timeline (20:00 ~ 08:00) -->
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span>點擊或拖曳塗抹入睡時段（每格 30 分鐘）</span>
+                <span class="font-mono">20:00 ～ 隔日 08:00</span>
+              </div>
+              <div
+                id="timeline-grid"
+                class="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1 select-none touch-none"
+              >
+                <!-- Rendered by JS -->
+              </div>
+            </div>
+
+            <!-- Exact-Minute ±5m Nudge Controls -->
+            <div class="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div class="text-xs font-bold text-slate-700 dark:text-slate-300">
+                精準分鐘微調（±5 分鐘，雙向同步上方輸入框）
+              </div>
+              <div id="minute-nudge-list" class="space-y-2">
+                <!-- Rendered by JS -->
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Right Column: Live Record Output & Staging List (5 cols) -->
+      <div class="lg:col-span-5 space-y-4">
+
+        <!-- Card D: Live Nursing Record Output -->
+        <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-3.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+              4. 即時護理紀錄預覽
+            </h2>
+
+            <!-- Bracket Toggle Checkbox (Unchecked by default) -->
+            <label class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+              <input
+                id="show-brackets-checkbox"
+                type="checkbox"
+                onchange="handleBracketToggle(this.checked)"
+                class="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              <span>顯示【】『』框號</span>
+            </label>
+          </div>
+
+          <!-- Highlighted Visual Preview Box -->
+          <div
+            id="record-highlighted-preview"
+            class="p-3.5 rounded-xl bg-indigo-500/10 dark:bg-indigo-950/50 border border-indigo-500/25 text-sm sm:text-base font-semibold text-slate-900 dark:text-indigo-100 leading-relaxed break-words"
+          >
+            觀察21:00入睡，病人夜安睡，總眠9小時30分
+          </div>
+
+          <!-- Editable Plain Textarea -->
+          <div>
+            <label for="record-output" class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+              可手動微調文字內容（按儲存或 Enter 將以此內容寫入）：
+            </label>
+            <textarea
+              id="record-output"
+              rows="2"
+              class="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-indigo-500 focus:outline-hidden text-sm font-medium text-slate-900 dark:text-slate-100 leading-relaxed resize-y"
+            >觀察21:00入睡，病人夜安睡，總眠9小時30分</textarea>
+          </div>
+
+          <!-- Primary Save & Copy Buttons -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+            <button
+              type="button"
+              onclick="saveCurrentBedAndAdvance()"
+              class="py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold text-sm shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span>💾 儲存並跳下一床 (Enter)</span>
+            </button>
+            <button
+              type="button"
+              onclick="copyCurrentOutput()"
+              class="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold text-sm transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span>📋 複製本床紀錄</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Card E: Recorded Staging List -->
+        <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-3.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                5. 已記錄清單
+              </h2>
+              <span id="staged-count-badge" class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                0 床
+              </span>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                onclick="copyAllStagedRecords()"
+                class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-2xs transition cursor-pointer"
+              >
+                📋 一鍵複製全部紀錄
+              </button>
+              <button
+                type="button"
+                id="clear-all-staged-btn"
+                onclick="handleClearAllStagedClick()"
+                class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-950/50 text-slate-600 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition cursor-pointer"
+              >
+                🗑️ 清空本班資料
+              </button>
+            </div>
+          </div>
+
+          <!-- Recorded Bed Cards List -->
+          <div id="staging-list-container" class="space-y-2.5 max-h-[540px] overflow-y-auto pr-1">
+            <!-- Rendered by JS -->
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- Multi-Computer Sync Settings Modal -->
+  <div id="sync-modal" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <h3 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+          ⚙️ 多機即時聯動設定（Firebase Firestore）
+        </h3>
+        <button type="button" onclick="closeSyncModal()" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- Current Connection Status Banner -->
+      <div id="sync-modal-status-box" class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-200 space-y-1">
+        <div class="font-bold">目前狀態：本機離線／同瀏覽器分頁同步模式</div>
+        <p class="opacity-90">無需任何設定即可在本機使用並自動保存；若需多台護理站電腦即時聯動，請貼上您的 Firebase Web Config。</p>
+      </div>
+
+      <div class="space-y-2">
+        <label for="firebase-config-textarea" class="block text-xs font-bold text-slate-700 dark:text-slate-200">
+          貼上 Firebase Web Config（支援直接貼上 <code>const firebaseConfig = { ... }</code>）：
+        </label>
+        <textarea
+          id="firebase-config-textarea"
+          rows="7"
+          placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "your-project.firebaseapp.com",
+  "projectId": "your-project",
+  "storageBucket": "your-project.firebasestorage.app",
+  "messagingSenderId": "123456789",
+  "appId": "1:123456789:web:abcdef"
+}'
+          class="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 font-mono text-xs text-slate-800 dark:text-slate-100 focus:border-indigo-500 focus:outline-hidden"
+        ></textarea>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onclick="connectFirebaseFromModal()"
+          class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition cursor-pointer"
+        >
+          🔌 連線並啟動雲端同步
+        </button>
+        <button
+          type="button"
+          onclick="copyShareableSyncUrl()"
+          class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition cursor-pointer"
+        >
+          🔗 複製聯動網址（傳給其他電腦）
+        </button>
+        <button
+          type="button"
+          onclick="disconnectFirebaseToLocal()"
+          class="px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition cursor-pointer"
+        >
+          切回本機模式
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-3 sm:px-0"></div>
+
+  <!-- Modular Vanilla JavaScript -->
+  <script type="module">
+    import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+    import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+    import {
+      getFirestore,
+      collection,
+      doc,
+      setDoc,
+      deleteDoc,
+      onSnapshot,
+      query,
+      where
+    } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+    /**
+     * =========================================================================
+     * 1. WARD & CLINICAL CONSTANTS
+     * =========================================================================
+     */
+    const WARD_ROOMS = [
+      { room: '422', beds: ['422'] },
+      { room: '423', beds: ['423-1', '423-2'] },
+      { room: '424', beds: ['424'] },
+      { room: '425', beds: ['425-1', '425-2'] },
+      { room: '426', beds: ['426-1', '426-2', '426-3', '426-4'] },
+      { room: '427', beds: ['427-1', '427-2', '427-3', '427-4'] },
+      { room: '428', beds: ['428-1', '428-2', '428-3', '428-4'] },
+      { room: '429', beds: ['429-1', '429-2', '429-3', '429-4'] },
+      { room: '430', beds: ['430-1', '430-2', '430-3', '430-4'] },
+      { room: '431', beds: ['431-1', '431-2', '431-3', '431-4'] },
+      { room: '432', beds: ['432-1', '432-2', '432-3', '432-4'] }
+    ];
+
+    const ALL_BEDS = WARD_ROOMS.flatMap((r) => r.beds);
+    const BED_INDEX_MAP = Object.fromEntries(ALL_BEDS.map((b, idx) => [b, idx]));
+
+    // Continuous 24h minute scale: 20:00 = 1200, 00:00 = 1440, 05:00 = 1740, 06:30 = 1830, 08:00 = 1920
+    const AXIS_START_MIN = 1200; // 20:00
+    const AXIS_END_MIN = 1920;   // 08:00 (next day)
+    const DEFAULT_ONSET_MIN = 1260; // 21:00
+    const DEFAULT_WAKE_MIN = 1830;  // 06:30
+    const LATE_SLEEP_THRESHOLD = 1440; // >= 00:00
+    const EARLY_WAKE_THRESHOLD = 1740; // < 05:00
+
+    const QUICK_BEHAVIORS = [
+      '如廁',
+      '起來裝水',
+      '持續靜躺',
+      '輾轉難眠',
+      '坐於床緣',
+      '至護理站主訴睡不著',
+      '予安撫衛教後返床'
+    ];
+
+    const BEHAVIOR_CATEGORIES = [
+      {
+        title: '生理需求',
+        items: ['如廁', '起來裝水', '飲水', '進食點心', '更換衣物']
+      },
+      {
+        title: '臥床狀態',
+        items: ['持續靜躺', '輾轉難眠', '坐於床緣', '滑手機', '閉目養神']
+      },
+      {
+        title: '病房動向',
+        items: ['走廊徘徊', '至護理站詢問時間', '至護理站主訴睡不著', '與病友交談']
+      },
+      {
+        title: '情緒與處置',
+        items: ['焦慮不安', '自言自語', '主訴身體不適', '要求PRN助眠藥', '予安撫衛教後返床']
+      }
+    ];
+
+    /**
+     * =========================================================================
+     * 2. APPLICATION STATE
+     * =========================================================================
+     */
+    function getTodayShiftCode() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `ward4-${y}-${m}-${d}`;
+    }
+
+    const state = {
+      shiftCode: getTodayShiftCode(),
+      workstationName: localStorage.getItem('ns_workstation_name') || '護理站A',
+      selectedBed: '422',
+      bedFilter: 'all', // 'all' | 'unfilled' | 'recorded' | 'empty'
+      inputMode: 'sleep', // 'sleep' | 'interruption'
+      rawDigits: '',
+      sleepIntervals: [{ start: DEFAULT_ONSET_MIN, end: DEFAULT_WAKE_MIN }],
+      parseError: '',
+      showBrackets: false,
+      behaviorTarget: 'interruption', // 'interruption' | 'late' | 'early'
+      behaviors: {
+        interruption: [],
+        late: [],
+        early: []
+      },
+      moreBehaviorsOpen: false,
+      timelineOpen: false,
+      recordsMap: {}, // bedId -> { bed, isEmpty, text, updatedBy, updatedAt, snapshot }
+      inlineEditingBed: null,
+      lastDeletedRecord: null,
+      clearConfirmTimer: null,
+      isConfirmingClear: false,
+      isComposing: false,
+      isDraggingTimeline: false,
+      dragPaintValue: true,
+      remotePulseBeds: new Set()
+    };
+
+    // Firebase runtime refs
+    let fbApp = null;
+    let fbDb = null;
+    let fbUnsubscribe = null;
+    let activeFbConfig = null;
+    let isCloudSynced = false;
+
+    const broadcastChannel =
+      typeof BroadcastChannel !== 'undefined'
+        ? new BroadcastChannel('night_sleep_nursing_record_bc')
+        : null;
+
+    if (broadcastChannel) {
+      broadcastChannel.onmessage = (e) => {
+        const msg = e.data;
+        if (!msg || msg.shiftCode !== state.shiftCode) return;
+        if (msg.type === 'UPSERT') {
+          state.recordsMap[msg.bed] = msg.record;
+          saveRecordsToLocal();
+          renderAllBedViews();
+        } else if (msg.type === 'DELETE') {
+          delete state.recordsMap[msg.bed];
+          saveRecordsToLocal();
+          renderAllBedViews();
+        } else if (msg.type === 'CLEAR_ALL') {
+          state.recordsMap = {};
+          saveRecordsToLocal();
+          renderAllBedViews();
+        }
+      };
+    }
+
+    /**
+     * =========================================================================
+     * 3. TIME & SENTENCE FORMATTING ENGINE
+     * =========================================================================
+     */
+    function minutesToHHMM(totalMin) {
+      const wrapped = ((totalMin % 1440) + 1440) % 1440;
+      const h = String(Math.floor(wrapped / 60)).padStart(2, '0');
+      const m = String(wrapped % 60).padStart(2, '0');
+      return `${h}:${m}`;
+    }
+
+    function hhmmDigitsToContinuousMin(fourDigits) {
+      const h = parseInt(fourDigits.slice(0, 2), 10);
+      const m = parseInt(fourDigits.slice(2, 4), 10);
+      if (Number.isNaN(h) || Number.isNaN(m) || h > 23 || m > 59) return null;
+      let total = h * 60 + m;
+      // Hours 00:00..11:59 represent next morning (+1440)
+      if (h < 12) total += 1440;
+      return total;
+    }
+
+    function formatDurationZh(mins) {
+      const safe = Math.max(0, Math.round(mins));
+      const h = Math.floor(safe / 60);
+      const m = safe % 60;
+      if (h > 0 && m > 0) return `${h}小時${m}分`;
+      if (h > 0) return `${h}小時`;
+      return `${m}分`;
+    }
+
+    function normalizeIntervals(rawList) {
+      if (!rawList || rawList.length === 0) return [];
+      const sorted = rawList
+        .map((iv) => ({
+          start: Math.max(AXIS_START_MIN, Math.min(AXIS_END_MIN, iv.start)),
+          end: Math.max(AXIS_START_MIN, Math.min(AXIS_END_MIN, iv.end))
+        }))
+        .filter((iv) => iv.end > iv.start)
+        .sort((a, b) => a.start - b.start);
+
+      if (sorted.length === 0) return [];
+      const merged = [sorted[0]];
+      for (let i = 1; i < sorted.length; i++) {
+        const prev = merged[merged.length - 1];
+        const curr = sorted[i];
+        if (curr.start <= prev.end) {
+          prev.end = Math.max(prev.end, curr.end);
+        } else {
+          merged.push(curr);
+        }
+      }
+      return merged;
+    }
+
+    function subtractIntervals(baseIntervals, cutIntervals) {
+      let result = [...baseIntervals];
+      for (const cut of cutIntervals) {
+        const next = [];
+        for (const seg of result) {
+          if (cut.end <= seg.start || cut.start >= seg.end) {
+            next.push(seg);
+          } else {
+            if (cut.start > seg.start) next.push({ start: seg.start, end: cut.start });
+            if (cut.end < seg.end) next.push({ start: cut.end, end: seg.end });
+          }
+        }
+        result = next;
+      }
+      return normalizeIntervals(result);
+    }
+
+    function computeSleepMetrics() {
+      const intervals = normalizeIntervals(state.sleepIntervals);
+      if (intervals.length === 0) {
+        return {
+          hasSleep: false,
+          intervals: [],
+          onsetMin: DEFAULT_ONSET_MIN,
+          wakeMin: DEFAULT_WAKE_MIN,
+          awakenings: [],
+          totalSleepMin: 0,
+          isLateSleep: false,
+          isEarlyWake: false
+        };
+      }
+
+      const onsetMin = intervals[0].start;
+      const wakeMin = intervals[intervals.length - 1].end;
+      const awakenings = [];
+      for (let i = 0; i < intervals.length - 1; i++) {
+        const start = intervals[i].end;
+        const end = intervals[i + 1].start;
+        if (end > start) {
+          awakenings.push({ start, end, duration: end - start });
+        }
+      }
+      const totalSleepMin = intervals.reduce((acc, iv) => acc + (iv.end - iv.start), 0);
+
+      return {
+        hasSleep: true,
+        intervals,
+        onsetMin,
+        wakeMin,
+        awakenings,
+        totalSleepMin,
+        isLateSleep: onsetMin >= LATE_SLEEP_THRESHOLD,
+        isEarlyWake: wakeMin < EARLY_WAKE_THRESHOLD
+      };
+    }
+
+    function formatBehaviorSuffix(list) {
+      if (!list || list.length === 0) return '';
+      return `（${list.join('、')}）`;
+    }
+
+    /**
+     * Core Clinical Nursing Record Sentence Generator
+     * Strictly implements Case A (A1, A2, A3) and Case B.
+     */
+    function generateNursingRecordSentence() {
+      const m = computeSleepMetrics();
+      if (!m.hasSleep) return '';
+
+      const wrapB = (val) => (state.showBrackets ? `【${val}】` : `${val}`);
+      const wrapT = (val) => (state.showBrackets ? `『${val}』` : `${val}`);
+
+      const onsetStr = minutesToHHMM(m.onsetMin);
+      const wakeStr = minutesToHHMM(m.wakeMin);
+      const totalDurStr = formatDurationZh(m.totalSleepMin);
+
+      const intBehaviorStr = formatBehaviorSuffix(state.behaviors.interruption);
+      const lateBehaviorStr = formatBehaviorSuffix(state.behaviors.late);
+      const earlyBehaviorStr = formatBehaviorSuffix(state.behaviors.early);
+
+      // CASE A: Zero Awakenings (awakenings.length === 0)
+      if (m.awakenings.length === 0) {
+        // Subcase A1: Late Sleep (onset >= 00:00) AND Zero Awakenings -> start directly with "{onset}晚入睡"
+        if (m.isLateSleep) {
+          let sentence = `${wrapB(onsetStr)}晚入睡${lateBehaviorStr}`;
+          if (m.isEarlyWake) {
+            sentence += `，${wakeStr}早醒${earlyBehaviorStr}`;
+          }
+          sentence += `，總眠${wrapT(totalDurStr)}`;
+          return sentence;
+        }
+
+        // Subcase A2: Normal onset (< 00:00) AND Early Wake (< 05:00)
+        if (m.isEarlyWake) {
+          return `觀察${wrapB(onsetStr)}入睡，${wakeStr}早醒${earlyBehaviorStr}，總眠${wrapT(totalDurStr)}`;
+        }
+
+        // Subcase A3: Normal onset (< 00:00) AND Normal wake (>= 05:00)
+        return `觀察${wrapB(onsetStr)}入睡，病人夜安睡，總眠${wrapT(totalDurStr)}`;
+      }
+
+      // CASE B: One or More Awakenings (awakenings.length > 0)
+      const durations = m.awakenings.map((a) => a.duration).sort((a, b) => a - b);
+      const minDur = durations[0];
+      const maxDur = durations[durations.length - 1];
+      const durRangeStr =
+        minDur === maxDur
+          ? `${wrapB(formatDurationZh(minDur))}`
+          : `${wrapB(formatDurationZh(minDur))}～${wrapB(formatDurationZh(maxDur))}`;
+
+      let latePart = '';
+      if (m.isLateSleep) {
+        latePart = `，${onsetStr}晚入睡${lateBehaviorStr}`;
+      }
+
+      let earlyPart = '';
+      if (m.isEarlyWake) {
+        earlyPart = `，${wakeStr}早醒${earlyBehaviorStr}`;
+      }
+
+      return `觀察${wrapB(onsetStr)}入睡，夜醒${wrapB(m.awakenings.length)}次，中斷${durRangeStr}${intBehaviorStr}${latePart}${earlyPart}，總眠${wrapT(totalDurStr)}`;
+    }
+
+    /**
+     * =========================================================================
+     * 4. CONTINUOUS 4-DIGIT PARSER & BIDIRECTIONAL SYNC
+     * =========================================================================
+     */
+    function normalizeDigitsString(str) {
+      return String(str || '')
+        .replace(/[\uFF10-\uFF19]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+        .replace(/\D/g, '');
+    }
+
+    function parseDigitsAndUpdateState(digits) {
+      state.rawDigits = digits;
+      state.parseError = '';
+
+      if (!digits) {
+        state.sleepIntervals = [{ start: DEFAULT_ONSET_MIN, end: DEFAULT_WAKE_MIN }];
+        autoSelectBehaviorTarget();
+        refreshEditorOutputs();
+        return;
+      }
+
+      // Split into 4-digit chunks
+      const chunks = [];
+      for (let i = 0; i < digits.length; i += 4) {
+        chunks.push(digits.slice(i, i + 4));
+      }
+
+      const lastChunk = chunks[chunks.length - 1];
+      if (lastChunk.length < 4) {
+        state.parseError = `正在輸入第 ${chunks.length} 組時間（${lastChunk}，需滿 4 碼）...`;
+        refreshParsedChipsOnly();
+        return;
+      }
+
+      // Validate each 4-digit timestamp
+      const minsList = [];
+      for (const c of chunks) {
+        const m = hhmmDigitsToContinuousMin(c);
+        if (m === null) {
+          state.parseError = `時間格式錯誤：「${c}」不是有效的 24 小時制時間`;
+          refreshParsedChipsOnly();
+          return;
+        }
+        minsList.push(m);
+      }
+
+      if (state.inputMode === 'sleep') {
+        // Odd number of 4-digit tokens -> auto-append 06:30 (1830) as final wake-up
+        const workingMins = [...minsList];
+        if (workingMins.length % 2 === 1) {
+          workingMins.push(DEFAULT_WAKE_MIN);
+        }
+
+        const intervals = [];
+        for (let i = 0; i < workingMins.length; i += 2) {
+          const s = workingMins[i];
+          const e = workingMins[i + 1];
+          if (e <= s) {
+            state.parseError = `結束時間（${minutesToHHMM(e)}）必須晚於開始時間（${minutesToHHMM(s)}）`;
+            refreshParsedChipsOnly();
+            return;
+          }
+          intervals.push({ start: s, end: e });
+        }
+
+        state.sleepIntervals = normalizeIntervals(intervals);
+      } else {
+        // Mode B: Default 21:00~06:30, subtract interruption pairs
+        if (minsList.length % 2 === 1) {
+          state.parseError = `中斷模式需輸入成對起訖時間（目前 ${minsList.length} 組，請補齊結束時間）`;
+          refreshParsedChipsOnly();
+          return;
+        }
+
+        const cuts = [];
+        for (let i = 0; i < minsList.length; i += 2) {
+          const s = minsList[i];
+          const e = minsList[i + 1];
+          if (e <= s) {
+            state.parseError = `中斷結束（${minutesToHHMM(e)}）必須晚於開始（${minutesToHHMM(s)}）`;
+            refreshParsedChipsOnly();
+            return;
+          }
+          cuts.push({ start: s, end: e });
+        }
+
+        const remaining = subtractIntervals(
+          [{ start: DEFAULT_ONSET_MIN, end: DEFAULT_WAKE_MIN }],
+          cuts
+        );
+        if (remaining.length === 0) {
+          state.parseError = '扣除中斷後無剩餘睡眠時段';
+          refreshParsedChipsOnly();
+          return;
+        }
+        state.sleepIntervals = remaining;
+      }
+
+      autoSelectBehaviorTarget();
+      refreshEditorOutputs();
+    }
+
+    function syncInputBoxFromSleepIntervals() {
+      const intervals = normalizeIntervals(state.sleepIntervals);
+      const inputEl = document.getElementById('rapid-digit-input');
+      if (
+        intervals.length === 1 &&
+        intervals[0].start === DEFAULT_ONSET_MIN &&
+        intervals[0].end === DEFAULT_WAKE_MIN
+      ) {
+        state.rawDigits = '';
+        inputEl.value = '';
+        return;
+      }
+
+      state.inputMode = 'sleep';
+      updateInputModeTabsUi();
+      const digits = intervals
+        .map((iv) => `${minutesToHHMM(iv.start).replace(':', '')}${minutesToHHMM(iv.end).replace(':', '')}`)
+        .join('');
+      state.rawDigits = digits;
+      inputEl.value = digits;
+    }
+
+    function autoSelectBehaviorTarget() {
+      const m = computeSleepMetrics();
+      if (!m.hasSleep) return;
+      if (m.awakenings.length > 0) {
+        setBehaviorTarget('interruption', false);
+      } else if (m.isLateSleep) {
+        setBehaviorTarget('late', false);
+      } else if (m.isEarlyWake) {
+        setBehaviorTarget('early', false);
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 5. UI RENDERING FUNCTIONS
+     * =========================================================================
+     */
+    function refreshParsedChipsOnly() {
+      const bar = document.getElementById('parsed-chips-bar');
+      if (state.parseError) {
+        bar.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-semibold">⚠️ ${escapeHtml(state.parseError)}</span>`;
+        return;
+      }
+
+      const m = computeSleepMetrics();
+      if (!m.hasSleep) {
+        bar.innerHTML = `<span class="text-rose-500 font-semibold">⚠️ 目前無睡眠時段</span>`;
+        return;
+      }
+
+      const chips = [];
+      m.intervals.forEach((iv, idx) => {
+        chips.push(
+          `<span class="px-2 py-0.5 rounded-lg bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-mono font-bold">睡眠${idx + 1}: ${minutesToHHMM(iv.start)}～${minutesToHHMM(iv.end)} (${formatDurationZh(iv.end - iv.start)})</span>`
+        );
+      });
+
+      m.awakenings.forEach((aw) => {
+        chips.push(
+          `<span class="px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300 font-mono font-bold">⚡ 中斷 ${minutesToHHMM(aw.start)}～${minutesToHHMM(aw.end)} (${formatDurationZh(aw.duration)})</span>`
+        );
+      });
+
+      if (m.isLateSleep) {
+        chips.push(
+          `<span class="px-2 py-0.5 rounded-lg bg-purple-500/15 text-purple-700 dark:text-purple-300 font-bold">🌙 ${minutesToHHMM(m.onsetMin)}晚入睡</span>`
+        );
+      }
+      if (m.isEarlyWake) {
+        chips.push(
+          `<span class="px-2 py-0.5 rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300 font-bold">🌅 ${minutesToHHMM(m.wakeMin)}早醒</span>`
+        );
+      }
+
+      chips.push(
+        `<span class="ml-auto px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold">總眠 ${formatDurationZh(m.totalSleepMin)}</span>`
+      );
+
+      bar.innerHTML = chips.join('');
+    }
+
+    function refreshEditorOutputs() {
+      refreshParsedChipsOnly();
+      const sentence = generateNursingRecordSentence();
+      document.getElementById('record-highlighted-preview').textContent =
+        sentence || '（請輸入有效睡眠時間）';
+      document.getElementById('record-output').value = sentence;
+
+      if (state.timelineOpen) {
+        renderTimelineGrid();
+        renderMinuteNudgeList();
+      }
+    }
+
+    function renderWardRoomGrid() {
+      const grid = document.getElementById('ward-room-grid');
+      let recordedCount = 0;
+      let emptyCount = 0;
+
+      for (const bedId of ALL_BEDS) {
+        const rec = state.recordsMap[bedId];
+        if (rec) {
+          if (rec.isEmpty) emptyCount++;
+          else recordedCount++;
+        }
+      }
+
+      const completedCount = recordedCount + emptyCount;
+      const unfilledCount = ALL_BEDS.length - completedCount;
+
+      document.getElementById('ward-progress-pill').textContent = `已完成 ${completedCount} / ${ALL_BEDS.length} 床`;
+      document.getElementById('ward-counts-detail').textContent = `已記錄 ${recordedCount} · 空床 ${emptyCount} · 未填 ${unfilledCount}`;
+      const pct = Math.round((completedCount / ALL_BEDS.length) * 100);
+      document.getElementById('ward-progress-bar').style.width = `${pct}%`;
+
+      const html = WARD_ROOMS.map((group) => {
+        const filteredBeds = group.beds.filter((bedId) => {
+          const rec = state.recordsMap[bedId];
+          if (state.bedFilter === 'unfilled') return !rec;
+          if (state.bedFilter === 'recorded') return Boolean(rec && !rec.isEmpty);
+          if (state.bedFilter === 'empty') return Boolean(rec && rec.isEmpty);
+          return true;
+        });
+
+        if (filteredBeds.length === 0) return '';
+
+        const bedsMarkup = filteredBeds
+          .map((bedId) => {
+            const rec = state.recordsMap[bedId];
+            const isSelected = state.selectedBed === bedId;
+            const isPulse = state.remotePulseBeds.has(bedId);
+
+            let btnClass =
+              'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-indigo-400';
+            let statusTag = '<span class="text-[10px] text-slate-400">未填</span>';
+            let labelClass = 'font-mono text-xs font-bold';
+
+            if (rec && rec.isEmpty) {
+              btnClass =
+                'bg-slate-100/70 dark:bg-slate-950/60 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500';
+              statusTag = '<span class="text-[10px]">空床</span>';
+              labelClass += ' line-through';
+            } else if (rec) {
+              btnClass =
+                'bg-emerald-500/12 border-emerald-500/40 text-emerald-800 dark:text-emerald-200';
+              statusTag = '<span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">✓ 已錄</span>';
+            }
+
+            if (isSelected) {
+              btnClass += ' ring-2 ring-indigo-500 border-indigo-500 dark:border-indigo-400';
+            }
+
+            return `
+              <button
+                type="button"
+                onclick="selectWardBed('${bedId}', true)"
+                class="w-full px-2 py-1.5 rounded-lg border flex items-center justify-between gap-1 transition cursor-pointer ${btnClass} ${isPulse ? 'remote-pulse' : ''}"
+              >
+                <span class="${labelClass}">${bedId}</span>
+                ${statusTag}
+              </button>
+            `;
+          })
+          .join('');
+
+        return `
+          <div class="p-2 rounded-xl bg-slate-50/70 dark:bg-slate-950/50 border border-slate-200/80 dark:border-slate-800/80 space-y-1.5">
+            <div class="flex items-center justify-between px-1">
+              <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">${group.room}房</span>
+              <span class="text-[10px] text-slate-400">${group.beds.length}床</span>
+            </div>
+            <div class="space-y-1">
+              ${bedsMarkup}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      grid.innerHTML =
+        html ||
+        `<div class="col-span-full py-6 text-center text-xs text-slate-400">目前篩選條件下無符合床位</div>`;
+    }
+
+    function renderActiveBedBanner() {
+      document.getElementById('active-bed-label').textContent = state.selectedBed;
+      const rec = state.recordsMap[state.selectedBed];
+      const hintEl = document.getElementById('active-bed-hint');
+      const emptyBtn = document.getElementById('toggle-empty-bed-btn');
+
+      if (!rec) {
+        hintEl.textContent = '尚未填寫 — 輸入四碼後按 Enter 自動儲存並跳下一床';
+        emptyBtn.textContent = '🛏️ 標記空床';
+      } else if (rec.isEmpty) {
+        hintEl.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-semibold">目前已標記為「空床」</span>（輸入四碼按 Enter 可直接覆蓋為睡眠紀錄）`;
+        emptyBtn.textContent = '↩️ 取消空床標記';
+      } else {
+        hintEl.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-semibold">已記錄：</span>${escapeHtml(rec.text)}`;
+        emptyBtn.textContent = '🛏️ 改標為空床';
+      }
+    }
+
+    function renderBehaviorUi() {
+      // Target tabs
+      document.querySelectorAll('.behavior-target-btn').forEach((btn) => {
+        const target = btn.getAttribute('data-btarget');
+        const count = state.behaviors[target].length;
+        const baseLabels = {
+          interruption: '⚡ 中斷期間',
+          late: '🌙 晚入睡前',
+          early: '🌅 早醒後'
+        };
+        btn.textContent = count > 0 ? `${baseLabels[target]} (${count})` : baseLabels[target];
+
+        if (target === state.behaviorTarget) {
+          btn.className =
+            'behavior-target-btn px-2.5 py-1 rounded-lg font-bold bg-indigo-600 text-white cursor-pointer';
+        } else {
+          btn.className =
+            'behavior-target-btn px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer';
+        }
+      });
+
+      // Active summary bar
+      const summaryEl = document.getElementById('selected-behaviors-summary');
+      const targetNames = { interruption: '中斷期間', late: '晚入睡前', early: '早醒後' };
+      const allSelectedBadges = [];
+      for (const key of ['interruption', 'late', 'early']) {
+        state.behaviors[key].forEach((b) => {
+          allSelectedBadges.push(
+            `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-600 text-white font-semibold">
+              <span class="opacity-75">[${targetNames[key]}]</span> ${escapeHtml(b)}
+              <button type="button" onclick="removeBehaviorFromTarget('${key}', '${escapeAttr(b)}')" class="ml-0.5 hover:text-rose-200 cursor-pointer">✕</button>
+            </span>`
+          );
+        });
+      }
+
+      if (allSelectedBadges.length > 0) {
+        summaryEl.classList.remove('hidden');
+        summaryEl.classList.add('flex');
+        summaryEl.innerHTML = allSelectedBadges.join('');
+      } else {
+        summaryEl.classList.add('hidden');
+        summaryEl.classList.remove('flex');
+      }
+
+      // Quick-tap 7 chips
+      const activeList = state.behaviors[state.behaviorTarget];
+      document.getElementById('quick-behavior-chips').innerHTML = QUICK_BEHAVIORS.map((label) => {
+        const active = activeList.includes(label);
+        return `
+          <button
+            type="button"
+            onclick="toggleBehaviorChip('${escapeAttr(label)}')"
+            class="px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+              active
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+            }"
+          >
+            ${active ? '✓ ' : ''}${escapeHtml(label)}
+          </button>
+        `;
+      }).join('');
+
+      // Expanded 4-category grid
+      const panel = document.getElementById('more-behaviors-panel');
+      if (state.moreBehaviorsOpen) {
+        panel.classList.remove('hidden');
+        panel.classList.add('grid');
+        panel.innerHTML = BEHAVIOR_CATEGORIES.map((cat) => {
+          const itemsHtml = cat.items
+            .map((item) => {
+              const active = activeList.includes(item);
+              return `
+                <button
+                  type="button"
+                  onclick="toggleBehaviorChip('${escapeAttr(item)}')"
+                  class="px-2 py-1 rounded-lg border text-[11px] font-semibold transition cursor-pointer ${
+                    active
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400'
+                  }"
+                >
+                  ${active ? '✓ ' : ''}${escapeHtml(item)}
+                </button>
+              `;
+            })
+            .join('');
+          return `
+            <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 space-y-1.5">
+              <div class="font-bold text-slate-600 dark:text-slate-300">${cat.title}</div>
+              <div class="flex flex-wrap gap-1">${itemsHtml}</div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        panel.classList.add('hidden');
+        panel.classList.remove('grid');
+      }
+    }
+
+    function renderTimelineGrid() {
+      const container = document.getElementById('timeline-grid');
+      const intervals = normalizeIntervals(state.sleepIntervals);
+      const slots = [];
+
+      for (let m = AXIS_START_MIN; m < AXIS_END_MIN; m += 30) {
+        const slotEnd = m + 30;
+        const isAsleep = intervals.some((iv) => iv.start < slotEnd && iv.end > m);
+        const label = minutesToHHMM(m);
+        slots.push(`
+          <button
+            type="button"
+            data-slot-start="${m}"
+            onmousedown="startTimelineDrag(${m}, ${!isAsleep})"
+            onmouseenter="continueTimelineDrag(${m})"
+            ontouchstart="handleTimelineTouchStart(event, ${m}, ${!isAsleep})"
+            class="py-2 px-1 rounded-lg border text-[11px] font-mono font-bold transition cursor-pointer ${
+              isAsleep
+                ? 'bg-indigo-600 text-white border-indigo-500 shadow-2xs'
+                : 'bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-indigo-400'
+            }"
+          >
+            ${label}
+          </button>
+        `);
+      }
+      container.innerHTML = slots.join('');
+    }
+
+    function renderMinuteNudgeList() {
+      const container = document.getElementById('minute-nudge-list');
+      const intervals = normalizeIntervals(state.sleepIntervals);
+      if (intervals.length === 0) {
+        container.innerHTML = `<div class="text-xs text-slate-400">無睡眠區間</div>`;
+        return;
+      }
+
+      container.innerHTML = intervals
+        .map(
+          (iv, idx) => `
+          <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span class="font-bold text-slate-700 dark:text-slate-200">區段 ${idx + 1}：</span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-slate-400">入睡</span>
+              <button type="button" onclick="nudgeIntervalEdge(${idx}, 'start', -5)" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 font-mono font-bold hover:bg-indigo-500 hover:text-white cursor-pointer">-5分</button>
+              <span class="font-mono font-bold text-indigo-600 dark:text-indigo-300 px-1">${minutesToHHMM(iv.start)}</span>
+              <button type="button" onclick="nudgeIntervalEdge(${idx}, 'start', 5)" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 font-mono font-bold hover:bg-indigo-500 hover:text-white cursor-pointer">+5分</button>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-slate-400">醒來</span>
+              <button type="button" onclick="nudgeIntervalEdge(${idx}, 'end', -5)" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 font-mono font-bold hover:bg-indigo-500 hover:text-white cursor-pointer">-5分</button>
+              <span class="font-mono font-bold text-emerald-600 dark:text-emerald-300 px-1">${minutesToHHMM(iv.end)}</span>
+              <button type="button" onclick="nudgeIntervalEdge(${idx}, 'end', 5)" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 font-mono font-bold hover:bg-indigo-500 hover:text-white cursor-pointer">+5分</button>
+            </div>
+          </div>
+        `
+        )
+        .join('');
+    }
+
+    function renderStagingList() {
+      const container = document.getElementById('staging-list-container');
+      const recordedList = ALL_BEDS.map((b) => state.recordsMap[b]).filter(
+        (rec) => rec && !rec.isEmpty
+      );
+
+      document.getElementById('staged-count-badge').textContent = `${recordedList.length} 床`;
+
+      if (recordedList.length === 0) {
+        container.innerHTML = `
+          <div class="py-10 px-4 text-center rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-400 space-y-1">
+            <div class="text-base">📋</div>
+            <div>尚未儲存任何床位紀錄</div>
+            <div>在左側輸入四碼時間後按 <kbd class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Enter</kbd> 即可自動加入</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = recordedList
+        .map((rec) => {
+          const isEditingInline = state.inlineEditingBed === rec.bed;
+          const timeLabel = rec.updatedAt
+            ? new Date(rec.updatedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
+            : '';
+
+          if (isEditingInline) {
+            return `
+              <div class="p-3 rounded-xl bg-indigo-500/10 border-2 border-indigo-500 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="px-2 py-0.5 rounded-lg bg-indigo-600 text-white font-mono text-xs font-bold">${rec.bed}</span>
+                  <span class="text-[11px] text-indigo-600 dark:text-indigo-300 font-bold">直接編輯文字模式</span>
+                </div>
+                <textarea
+                  id="inline-edit-textarea-${rec.bed}"
+                  rows="2"
+                  class="w-full p-2 rounded-lg bg-white dark:bg-slate-950 border border-indigo-400 text-xs sm:text-sm font-medium focus:outline-hidden"
+                >${escapeHtml(rec.text)}</textarea>
+                <div class="flex items-center justify-end gap-1.5">
+                  <button type="button" onclick="cancelInlineEdit()" class="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-xs font-semibold cursor-pointer">取消</button>
+                  <button type="button" onclick="saveInlineEdit('${rec.bed}')" class="px-3 py-1 rounded-lg bg-indigo-600 text-white text-xs font-bold cursor-pointer">💾 儲存修改</button>
+                </div>
+              </div>
+            `;
+          }
+
+          return `
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 space-y-2 hover:border-slate-300 dark:hover:border-slate-700 transition">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-0.5 rounded-lg bg-indigo-600 text-white font-mono text-xs font-bold">
+                    ${rec.bed}
+                  </span>
+                  <span class="text-[11px] text-slate-400">
+                    ${escapeHtml(rec.updatedBy || '')} ${timeLabel}
+                  </span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button type="button" onclick="copySingleStagedRecord('${rec.bed}')" class="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 text-[11px] font-semibold cursor-pointer" title="複製此床">
+                    📋 複製
+                  </button>
+                  <button type="button" onclick="loadStagedIntoEditor('${rec.bed}')" class="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 text-[11px] font-semibold cursor-pointer" title="載入上方重新計算">
+                    🔄 載入修改
+                  </button>
+                  <button type="button" onclick="startInlineEdit('${rec.bed}')" class="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 text-[11px] font-semibold cursor-pointer" title="直接改字">
+                    ✏️ 直接改字
+                  </button>
+                  <button type="button" onclick="deleteStagedRecord('${rec.bed}')" class="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-rose-400 hover:text-rose-500 text-[11px] font-semibold cursor-pointer" title="刪除">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+              <p class="text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed break-words">
+                ${escapeHtml(rec.text)}
+              </p>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function renderAllBedViews() {
+      renderWardRoomGrid();
+      renderActiveBedBanner();
+      renderStagingList();
+    }
+
+    /**
+     * =========================================================================
+     * 6. USER INTERACTIONS & WORKFLOW HANDLERS
+     * =========================================================================
+     */
+    function selectWardBed(bedId, focusInput = true) {
+      state.selectedBed = bedId;
+      const existing = state.recordsMap[bedId];
+
+      if (existing && !existing.isEmpty && existing.snapshot) {
+        restoreEditorFromSnapshot(existing.snapshot);
+      } else {
+        resetEditorToDefault();
+      }
+
+      renderWardRoomGrid();
+      renderActiveBedBanner();
+
+      if (focusInput) {
+        const inputEl = document.getElementById('rapid-digit-input');
+        inputEl.focus();
+        inputEl.select();
+      }
+    }
+
+    function advanceToNextUnfilledBed(focusInput = true) {
+      const startIdx = BED_INDEX_MAP[state.selectedBed] ?? -1;
+      for (let step = 1; step <= ALL_BEDS.length; step++) {
+        const candidate = ALL_BEDS[(startIdx + step) % ALL_BEDS.length];
+        if (!state.recordsMap[candidate]) {
+          selectWardBed(candidate, focusInput);
+          return { nextBed: candidate, allDone: false };
+        }
+      }
+      const fallback = ALL_BEDS[(startIdx + 1) % ALL_BEDS.length];
+      selectWardBed(fallback, focusInput);
+      return { nextBed: fallback, allDone: true };
+    }
+
+    function resetEditorToDefault() {
+      state.rawDigits = '';
+      state.parseError = '';
+      state.sleepIntervals = [{ start: DEFAULT_ONSET_MIN, end: DEFAULT_WAKE_MIN }];
+      state.behaviors = { interruption: [], late: [], early: [] };
+      const inputEl = document.getElementById('rapid-digit-input');
+      inputEl.value = '';
+      renderBehaviorUi();
+      refreshEditorOutputs();
+    }
+
+    function createEditorSnapshot() {
+      return {
+        inputMode: state.inputMode,
+        rawDigits: state.rawDigits,
+        sleepIntervals: JSON.parse(JSON.stringify(state.sleepIntervals)),
+        behaviors: JSON.parse(JSON.stringify(state.behaviors))
+      };
+    }
+
+    function restoreEditorFromSnapshot(snap) {
+      state.inputMode = snap.inputMode || 'sleep';
+      state.rawDigits = snap.rawDigits || '';
+      state.parseError = '';
+      state.sleepIntervals = snap.sleepIntervals
+        ? JSON.parse(JSON.stringify(snap.sleepIntervals))
+        : [{ start: DEFAULT_ONSET_MIN, end: DEFAULT_WAKE_MIN }];
+      state.behaviors = snap.behaviors
+        ? {
+            interruption: [...(snap.behaviors.interruption || [])],
+            late: [...(snap.behaviors.late || [])],
+            early: [...(snap.behaviors.early || [])]
+          }
+        : { interruption: [], late: [], early: [] };
+
+      updateInputModeTabsUi();
+      document.getElementById('rapid-digit-input').value = state.rawDigits;
+      renderBehaviorUi();
+      refreshEditorOutputs();
+    }
+
+    function saveCurrentBedAndAdvance() {
+      const inputEl = document.getElementById('rapid-digit-input');
+      const normalized = normalizeDigitsString(inputEl.value);
+      if (normalized !== state.rawDigits) {
+        inputEl.value = normalized;
+        parseDigitsAndUpdateState(normalized);
+      }
+
+      if (state.parseError) {
+        showToast(`⚠️ ${state.parseError}`, 'warning');
+        inputEl.focus();
+        return;
+      }
+
+      const finalText = document.getElementById('record-output').value.trim();
+      if (!finalText) {
+        showToast('⚠️ 請先輸入有效睡眠時間', 'warning');
+        inputEl.focus();
+        return;
+      }
+
+      const targetBed = state.selectedBed;
+      const recordObj = {
+        bed: targetBed,
+        isEmpty: false,
+        text: finalText,
+        updatedBy: state.workstationName,
+        updatedAt: Date.now(),
+        snapshot: createEditorSnapshot()
+      };
+
+      upsertRecordEverywhere(targetBed, recordObj);
+
+      const { nextBed, allDone } = advanceToNextUnfilledBed(true);
+      if (allDone) {
+        showToast(`🎉 已儲存 ${targetBed}！全部 34 床皆已完成（切至 ${nextBed}）`, 'success');
+      } else {
+        showToast(`✅ 已儲存 ${targetBed} ➔ 自動跳至 ${nextBed} 床`, 'success');
+      }
+    }
+
+    function toggleActiveBedEmpty() {
+      const targetBed = state.selectedBed;
+      const existing = state.recordsMap[targetBed];
+      if (existing && existing.isEmpty) {
+        deleteRecordEverywhere(targetBed);
+        renderAllBedViews();
+        showToast(`已取消 ${targetBed} 的空床標記`, 'info');
+      } else {
+        upsertRecordEverywhere(targetBed, {
+          bed: targetBed,
+          isEmpty: true,
+          text: '空床',
+          updatedBy: state.workstationName,
+          updatedAt: Date.now(),
+          snapshot: null
+        });
+        const { nextBed } = advanceToNextUnfilledBed(true);
+        showToast(`🛏️ 已標記 ${targetBed} 為空床 ➔ 跳至 ${nextBed} 床`, 'info');
+      }
+    }
+
+    function setBedFilter(filterMode) {
+      state.bedFilter = filterMode;
+      document.querySelectorAll('.bed-filter-btn').forEach((btn) => {
+        const isCurrent = btn.getAttribute('data-filter') === filterMode;
+        btn.className = isCurrent
+          ? 'bed-filter-btn px-2.5 py-1 rounded-lg font-semibold bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs cursor-pointer'
+          : 'bed-filter-btn px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer';
+      });
+      renderWardRoomGrid();
+    }
+
+    function setInputMode(mode) {
+      state.inputMode = mode;
+      updateInputModeTabsUi();
+      const inputEl = document.getElementById('rapid-digit-input');
+      parseDigitsAndUpdateState(normalizeDigitsString(inputEl.value));
+      inputEl.focus();
+    }
+
+    function updateInputModeTabsUi() {
+      const tabSleep = document.getElementById('mode-tab-sleep');
+      const tabInt = document.getElementById('mode-tab-interruption');
+      const helper = document.getElementById('mode-helper-text');
+      const inputEl = document.getElementById('rapid-digit-input');
+
+      if (state.inputMode === 'sleep') {
+        tabSleep.className =
+          'px-2.5 py-1 rounded-lg font-bold bg-indigo-600 text-white shadow-2xs transition cursor-pointer';
+        tabInt.className =
+          'px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer';
+        helper.innerHTML =
+          '留空＝<span class="font-semibold text-slate-700 dark:text-slate-200">21:00～06:30 夜安睡</span>；輸入奇數組四碼（如 <code class="font-mono text-indigo-500">0030</code>）自動補齊 <code class="font-mono">06:30</code> 醒來。';
+        inputEl.placeholder = '輸入四碼如 2100010001300630 或 0030（按 Enter 儲存跳下一床）';
+      } else {
+        tabInt.className =
+          'px-2.5 py-1 rounded-lg font-bold bg-indigo-600 text-white shadow-2xs transition cursor-pointer';
+        tabSleep.className =
+          'px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer';
+        helper.innerHTML =
+          '預設 <span class="font-semibold text-slate-700 dark:text-slate-200">21:00～06:30</span> 睡眠，僅需輸入中斷起訖四碼（如 <code class="font-mono text-indigo-500">03000530</code> 或 <code class="font-mono text-indigo-500">2200230003000530</code>）。';
+        inputEl.placeholder = '僅輸入中斷四碼如 03000530（按 Enter 儲存跳下一床）';
+      }
+    }
+
+    function applyQuickPreset(type) {
+      const inputEl = document.getElementById('rapid-digit-input');
+      state.inputMode = 'sleep';
+      updateInputModeTabsUi();
+      if (type === 'full') {
+        inputEl.value = '';
+        parseDigitsAndUpdateState('');
+      } else if (type === 'late') {
+        inputEl.value = '0030';
+        parseDigitsAndUpdateState('0030');
+      } else if (type === 'wake2') {
+        inputEl.value = '210022002300030005300630';
+        parseDigitsAndUpdateState('210022002300030005300630');
+      }
+      inputEl.focus();
+    }
+
+    function clearRapidInputBox() {
+      const inputEl = document.getElementById('rapid-digit-input');
+      inputEl.value = '';
+      parseDigitsAndUpdateState('');
+      inputEl.focus();
+    }
+
+    function handleBracketToggle(checked) {
+      state.showBrackets = Boolean(checked);
+      refreshEditorOutputs();
+    }
+
+    function setBehaviorTarget(target, shouldRender = true) {
+      state.behaviorTarget = target;
+      if (shouldRender) renderBehaviorUi();
+    }
+
+    function toggleBehaviorChip(label) {
+      const list = state.behaviors[state.behaviorTarget];
+      const idx = list.indexOf(label);
+      if (idx >= 0) {
+        list.splice(idx, 1);
+      } else {
+        list.push(label);
+      }
+      renderBehaviorUi();
+      refreshEditorOutputs();
+    }
+
+    function removeBehaviorFromTarget(target, label) {
+      const list = state.behaviors[target];
+      const idx = list.indexOf(label);
+      if (idx >= 0) list.splice(idx, 1);
+      renderBehaviorUi();
+      refreshEditorOutputs();
+    }
+
+    function addCustomBehavior() {
+      const input = document.getElementById('custom-behavior-input');
+      const val = input.value.trim();
+      if (!val) return;
+      const list = state.behaviors[state.behaviorTarget];
+      if (!list.includes(val)) list.push(val);
+      input.value = '';
+      renderBehaviorUi();
+      refreshEditorOutputs();
+    }
+
+    function toggleMoreBehaviors() {
+      state.moreBehaviorsOpen = !state.moreBehaviorsOpen;
+      document.getElementById('toggle-more-behaviors-btn').textContent = state.moreBehaviorsOpen
+        ? '－ 收合四大分類行為選項'
+        : '＋ 展開完整四大分類行為選項';
+      renderBehaviorUi();
+    }
+
+    function toggleTimelineAccordion() {
+      state.timelineOpen = !state.timelineOpen;
+      const body = document.getElementById('timeline-accordion-body');
+      const arrow = document.getElementById('timeline-accordion-arrow');
+      if (state.timelineOpen) {
+        body.classList.remove('hidden');
+        arrow.textContent = '收合 ▲';
+        renderTimelineGrid();
+        renderMinuteNudgeList();
+      } else {
+        body.classList.add('hidden');
+        arrow.textContent = '展開 ▼';
+      }
+    }
+
+    function setTimelineSlotState(slotStartMin, asleep) {
+      const slotEndMin = slotStartMin + 30;
+      if (asleep) {
+        state.sleepIntervals = normalizeIntervals([
+          ...state.sleepIntervals,
+          { start: slotStartMin, end: slotEndMin }
+        ]);
+      } else {
+        state.sleepIntervals = subtractIntervals(state.sleepIntervals, [
+          { start: slotStartMin, end: slotEndMin }
+        ]);
+      }
+      syncInputBoxFromSleepIntervals();
+      autoSelectBehaviorTarget();
+      refreshEditorOutputs();
+    }
+
+    function startTimelineDrag(slotStartMin, paintAsleep) {
+      state.isDraggingTimeline = true;
+      state.dragPaintValue = paintAsleep;
+      setTimelineSlotState(slotStartMin, paintAsleep);
+    }
+
+    function continueTimelineDrag(slotStartMin) {
+      if (!state.isDraggingTimeline) return;
+      setTimelineSlotState(slotStartMin, state.dragPaintValue);
+    }
+
+    function handleTimelineTouchStart(event, slotStartMin, paintAsleep) {
+      event.preventDefault();
+      setTimelineSlotState(slotStartMin, paintAsleep);
+    }
+
+    document.addEventListener('mouseup', () => {
+      state.isDraggingTimeline = false;
+    });
+
+    function nudgeIntervalEdge(idx, edge, deltaMin) {
+      const intervals = normalizeIntervals(state.sleepIntervals);
+      if (!intervals[idx]) return;
+      if (edge === 'start') {
+        intervals[idx].start = Math.max(
+          AXIS_START_MIN,
+          Math.min(intervals[idx].end - 5, intervals[idx].start + deltaMin)
+        );
+      } else {
+        intervals[idx].end = Math.min(
+          AXIS_END_MIN,
+          Math.max(intervals[idx].start + 5, intervals[idx].end + deltaMin)
+        );
+      }
+      state.sleepIntervals = normalizeIntervals(intervals);
+      syncInputBoxFromSleepIntervals();
+      autoSelectBehaviorTarget();
+      refreshEditorOutputs();
+    }
+
+    /**
+     * =========================================================================
+     * 7. STAGING LIST ACTIONS & CLIPBOARD HELPERS
+     * =========================================================================
+     */
+    function copyTextSafe(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try {
+        ok = document.execCommand('copy');
+      } catch (e) {
+        ok = false;
+      }
+      document.body.removeChild(ta);
+      return ok;
+    }
+
+    function copyCurrentOutput() {
+      const text = document.getElementById('record-output').value.trim();
+      if (!text) return;
+      if (copyTextSafe(text)) {
+        showToast(`📋 已複製 ${state.selectedBed} 床紀錄`, 'success');
+      }
+    }
+
+    function copySingleStagedRecord(bedId) {
+      const rec = state.recordsMap[bedId];
+      if (!rec) return;
+      if (copyTextSafe(`${rec.bed}：${rec.text}`)) {
+        showToast(`📋 已複製 ${bedId} 床紀錄`, 'success');
+      }
+    }
+
+    function copyAllStagedRecords() {
+      const recordedList = ALL_BEDS.map((b) => state.recordsMap[b]).filter(
+        (rec) => rec && !rec.isEmpty
+      );
+      if (recordedList.length === 0) {
+        showToast('目前尚無已記錄的床位資料', 'warning');
+        return;
+      }
+      const combined = recordedList.map((rec) => `${rec.bed}：${rec.text}`).join('\n');
+      if (copyTextSafe(combined)) {
+        showToast(`📋 已依床號順序複製全部 ${recordedList.length} 床紀錄！`, 'success');
+      }
+    }
+
+    function loadStagedIntoEditor(bedId) {
+      selectWardBed(bedId, true);
+      showToast(`🔄 已將 ${bedId} 床載入上方編輯區`, 'info');
+    }
+
+    function startInlineEdit(bedId) {
+      state.inlineEditingBed = bedId;
+      renderStagingList();
+      const ta = document.getElementById(`inline-edit-textarea-${bedId}`);
+      if (ta) ta.focus();
+    }
+
+    function cancelInlineEdit() {
+      state.inlineEditingBed = null;
+      renderStagingList();
+    }
+
+    function saveInlineEdit(bedId) {
+      const ta = document.getElementById(`inline-edit-textarea-${bedId}`);
+      const rec = state.recordsMap[bedId];
+      if (!ta || !rec) return;
+      const updatedText = ta.value.trim();
+      if (!updatedText) {
+        showToast('紀錄內容不可為空白', 'warning');
+        return;
+      }
+      state.inlineEditingBed = null;
+      upsertRecordEverywhere(bedId, {
+        ...rec,
+        text: updatedText,
+        updatedBy: state.workstationName,
+        updatedAt: Date.now()
+      });
+      showToast(`✅ 已更新 ${bedId} 床紀錄文字`, 'success');
+    }
+
+    function deleteStagedRecord(bedId) {
+      const rec = state.recordsMap[bedId];
+      if (!rec) return;
+      state.lastDeletedRecord = JSON.parse(JSON.stringify(rec));
+      deleteRecordEverywhere(bedId);
+      renderAllBedViews();
+      showUndoToast(bedId);
+    }
+
+    function undoLastDelete() {
+      if (!state.lastDeletedRecord) return;
+      const restored = state.lastDeletedRecord;
+      state.lastDeletedRecord = null;
+      upsertRecordEverywhere(restored.bed, {
+        ...restored,
+        updatedAt: Date.now()
+      });
+      showToast(`↩️ 已復原 ${restored.bed} 床紀錄`, 'success');
+    }
+
+    function handleClearAllStagedClick() {
+      const keys = Object.keys(state.recordsMap);
+      if (keys.length === 0) {
+        showToast('本班目前無已儲存資料', 'info');
+        return;
+      }
+      const btn = document.getElementById('clear-all-staged-btn');
+      if (!state.isConfirmingClear) {
+        state.isConfirmingClear = true;
+        btn.textContent = '⚠️ 確定清空？';
+        btn.className =
+          'px-2.5 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-bold transition cursor-pointer';
+        state.clearConfirmTimer = setTimeout(() => {
+          state.isConfirmingClear = false;
+          btn.textContent = '🗑️ 清空本班資料';
+          btn.className =
+            'px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-950/50 text-slate-600 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition cursor-pointer';
+        }, 3500);
+        return;
+      }
+
+      clearTimeout(state.clearConfirmTimer);
+      state.isConfirmingClear = false;
+      btn.textContent = '🗑️ 清空本班資料';
+      btn.className =
+        'px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-950/50 text-slate-600 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition cursor-pointer';
+
+      clearAllRecordsEverywhere();
+      showToast('已清空本班所有床位資料', 'info');
+    }
+
+    /**
+     * =========================================================================
+     * 8. LOCAL STORAGE + BROADCASTCHANNEL + FIREBASE SYNC ENGINE
+     * =========================================================================
+     */
+    function getLocalStorageKey(shiftCode) {
+      return `ns_ward4_records__${shiftCode.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+    }
+
+    function saveRecordsToLocal() {
+      try {
+        localStorage.setItem(getLocalStorageKey(state.shiftCode), JSON.stringify(state.recordsMap));
+      } catch (e) {}
+    }
+
+    function loadRecordsFromLocal() {
+      try {
+        const raw = localStorage.getItem(getLocalStorageKey(state.shiftCode));
+        state.recordsMap = raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        state.recordsMap = {};
+      }
+    }
+
+    function upsertRecordEverywhere(bedId, recordObj) {
+      state.recordsMap[bedId] = recordObj;
+      saveRecordsToLocal();
+      if (broadcastChannel) {
+        broadcastChannel.postMessage({
+          type: 'UPSERT',
+          shiftCode: state.shiftCode,
+          bed: bedId,
+          record: recordObj
+        });
+      }
+      renderAllBedViews();
+
+      // Non-blocking cloud Firestore sync
+      if (isCloudSynced && fbDb) {
+        const safeDocId = `${state.shiftCode}__${bedId}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const docRef = doc(fbDb, 'night_sleep_records', safeDocId);
+        setDoc(docRef, {
+          shiftCode: state.shiftCode,
+          ...recordObj,
+          snapshotJson: recordObj.snapshot ? JSON.stringify(recordObj.snapshot) : ''
+        }).catch((err) => {
+          console.warn('Background Firestore write error:', err);
+        });
+      }
+    }
+
+    function deleteRecordEverywhere(bedId) {
+      delete state.recordsMap[bedId];
+      saveRecordsToLocal();
+      if (broadcastChannel) {
+        broadcastChannel.postMessage({
+          type: 'DELETE',
+          shiftCode: state.shiftCode,
+          bed: bedId
+        });
+      }
+
+      if (isCloudSynced && fbDb) {
+        const safeDocId = `${state.shiftCode}__${bedId}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const docRef = doc(fbDb, 'night_sleep_records', safeDocId);
+        deleteDoc(docRef).catch((err) => console.warn('Background Firestore delete error:', err));
+      }
+    }
+
+    function clearAllRecordsEverywhere() {
+      const oldBeds = Object.keys(state.recordsMap);
+      state.recordsMap = {};
+      saveRecordsToLocal();
+      if (broadcastChannel) {
+        broadcastChannel.postMessage({
+          type: 'CLEAR_ALL',
+          shiftCode: state.shiftCode
+        });
+      }
+      renderAllBedViews();
+
+      if (isCloudSynced && fbDb) {
+        for (const bedId of oldBeds) {
+          const safeDocId = `${state.shiftCode}__${bedId}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+          deleteDoc(doc(fbDb, 'night_sleep_records', safeDocId)).catch(() => {});
+        }
+      }
+    }
+
+    function parseFirebaseConfigInput(rawText) {
+      let cleaned = rawText.trim();
+      // Strip "const firebaseConfig = " and trailing semicolon
+      cleaned = cleaned
+        .replace(/^(export\s+)?(const|let|var)\s+\w+\s*=\s*/i, '')
+        .replace(/;\s*$/, '');
+      // Quote unquoted keys safely
+      cleaned = cleaned.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
+      // Remove trailing commas
+      cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+
+      const obj = JSON.parse(cleaned);
+      if (!obj.apiKey || !obj.projectId) {
+        throw new Error('缺少必要的 apiKey 或 projectId 欄位');
+      }
+      // Auto-repair malformed authDomain or databaseURL
+      if (!obj.authDomain || obj.authDomain.startsWith('://')) {
+        obj.authDomain = `${obj.projectId}.firebaseapp.com`;
+      }
+      if (!obj.storageBucket) {
+        obj.storageBucket = `${obj.projectId}.firebasestorage.app`;
+      }
+      return obj;
+    }
+
+    async function initCloudFirestore(configObj, silent = false) {
+      try {
+        if (fbUnsubscribe) {
+          fbUnsubscribe();
+          fbUnsubscribe = null;
+        }
+        if (fbApp) {
+          await deleteApp(fbApp).catch(() => {});
+          fbApp = null;
+        }
+
+        fbApp = initializeApp(configObj, 'ns-sync-' + Date.now());
+        fbDb = getFirestore(fbApp);
+
+        // Non-blocking anonymous auth attempt (works even if Anonymous provider is off in test mode)
+        try {
+          const auth = getAuth(fbApp);
+          await signInAnonymously(auth);
+        } catch (authErr) {
+          console.info('Anonymous auth skipped or disabled; proceeding to direct Firestore listener.');
+        }
+
+        activeFbConfig = configObj;
+        isCloudSynced = true;
+        localStorage.setItem('ns_firebase_config', JSON.stringify(configObj));
+
+        subscribeToCloudShift();
+        updateSyncStatusUi(true, '雲端多機即時聯動中');
+        if (!silent) {
+          showToast('🟢 已連線至雲端資料庫，多台電腦可即時同步！', 'success');
+        }
+      } catch (err) {
+        isCloudSynced = false;
+        updateSyncStatusUi(false, '本機同步模式（雲端未連線）', err.message);
+        if (!silent) {
+          showToast(`⚠️ 雲端連線失敗：${err.message}`, 'error');
+        }
+      }
+    }
+
+    function subscribeToCloudShift() {
+      if (!fbDb) return;
+      if (fbUnsubscribe) fbUnsubscribe();
+
+      const q = query(
+        collection(fbDb, 'night_sleep_records'),
+        where('shiftCode', '==', state.shiftCode)
+      );
+
+      fbUnsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            const data = change.doc.data();
+            const bedId = data.bed;
+            if (!bedId) return;
+
+            if (change.type === 'removed') {
+              delete state.recordsMap[bedId];
+            } else {
+              let parsedSnap = null;
+              if (data.snapshotJson) {
+                try {
+                  parsedSnap = JSON.parse(data.snapshotJson);
+                } catch (e) {}
+              }
+              state.recordsMap[bedId] = {
+                bed: bedId,
+                isEmpty: Boolean(data.isEmpty),
+                text: data.text || '',
+                updatedBy: data.updatedBy || '',
+                updatedAt: data.updatedAt || Date.now(),
+                snapshot: parsedSnap
+              };
+
+              if (data.updatedBy !== state.workstationName) {
+                state.remotePulseBeds.add(bedId);
+                setTimeout(() => {
+                  state.remotePulseBeds.delete(bedId);
+                  renderWardRoomGrid();
+                }, 2800);
+              }
+            }
+          });
+
+          saveRecordsToLocal();
+          renderAllBedViews();
+        },
+        (err) => {
+          console.warn('Firestore snapshot error:', err);
+          updateSyncStatusUi(false, '雲端監聽受限（請檢查 Firestore 規則）', err.message);
+        }
+      );
+    }
+
+    function updateSyncStatusUi(connected, labelText, detailMsg = '') {
+      const pill = document.getElementById('sync-status-pill');
+      const dot = document.getElementById('sync-status-dot');
+      const label = document.getElementById('sync-status-label');
+      const modalBox = document.getElementById('sync-modal-status-box');
+
+      label.textContent = labelText;
+      if (connected) {
+        pill.className =
+          'px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition flex items-center gap-1.5 cursor-pointer';
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+        modalBox.className =
+          'p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-800 dark:text-emerald-200 space-y-1';
+        modalBox.innerHTML = `<div class="font-bold">🟢 雲端多機即時聯動已啟動（班別：${escapeHtml(state.shiftCode)}）</div><p>所有使用相同班別代碼的電腦都會即時同步更新。</p>`;
+      } else {
+        pill.className =
+          'px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition flex items-center gap-1.5 cursor-pointer';
+        dot.className = 'w-2 h-2 rounded-full bg-amber-500';
+        modalBox.className =
+          'p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-200 space-y-1';
+        modalBox.innerHTML = `<div class="font-bold">🟡 ${escapeHtml(labelText)}</div><p>${escapeHtml(detailMsg || '無需設定即可在本機與同瀏覽器分頁同步使用。')}</p>`;
+      }
+    }
+
+    function openSyncModal() {
+      const ta = document.getElementById('firebase-config-textarea');
+      if (activeFbConfig && !ta.value.trim()) {
+        ta.value = JSON.stringify(activeFbConfig, null, 2);
+      }
+      document.getElementById('sync-modal').classList.remove('hidden');
+    }
+
+    function closeSyncModal() {
+      document.getElementById('sync-modal').classList.add('hidden');
+    }
+
+    async function connectFirebaseFromModal() {
+      const raw = document.getElementById('firebase-config-textarea').value;
+      if (!raw.trim()) {
+        showToast('請先貼上 Firebase Web Config 設定內容', 'warning');
+        return;
+      }
+      try {
+        const configObj = parseFirebaseConfigInput(raw);
+        await initCloudFirestore(configObj, false);
+      } catch (e) {
+        showToast(`設定解析失敗：${e.message}`, 'error');
+      }
+    }
+
+    function disconnectFirebaseToLocal() {
+      if (fbUnsubscribe) {
+        fbUnsubscribe();
+        fbUnsubscribe = null;
+      }
+      isCloudSynced = false;
+      activeFbConfig = null;
+      localStorage.removeItem('ns_firebase_config');
+      updateSyncStatusUi(false, '本機同步模式');
+      showToast('已切換回本機同步模式', 'info');
+    }
+
+    function copyShareableSyncUrl() {
+      const payload = {
+        shiftCode: state.shiftCode,
+        fbConfig: activeFbConfig
+      };
+      const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
+      const shareUrl = `${window.location.origin}${window.location.pathname}#sync=${encoded}`;
+      if (copyTextSafe(shareUrl)) {
+        showToast('🔗 已複製聯動網址！傳給其他電腦開啟即可自動連線同步', 'success');
+      }
+    }
+
+    function handleShiftCodeChange(val) {
+      const next = val.trim() || getTodayShiftCode();
+      state.shiftCode = next;
+      document.getElementById('shift-code-input').value = next;
+      loadRecordsFromLocal();
+      renderAllBedViews();
+      if (isCloudSynced) subscribeToCloudShift();
+      showToast(`已切換至班別「${next}」`, 'info');
+    }
+
+    function handleWorkstationChange(val) {
+      state.workstationName = val.trim() || '護理站A';
+      localStorage.setItem('ns_workstation_name', state.workstationName);
+    }
+
+    function toggleThemeMode() {
+      const html = document.documentElement;
+      const btn = document.getElementById('theme-toggle-btn');
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+        btn.textContent = '🌙 夜班深色';
+      } else {
+        html.classList.add('dark');
+        btn.textContent = '☀️ 日間模式';
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 9. TOAST NOTIFICATIONS & ESCAPING HELPERS
+     * =========================================================================
+     */
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function escapeAttr(str) {
+      return String(str || '').replace(/'/g, "\\'");
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const colors = {
+        success: 'bg-emerald-600 text-white border-emerald-500',
+        warning: 'bg-amber-600 text-white border-amber-500',
+        error: 'bg-rose-600 text-white border-rose-500',
+        info: 'bg-slate-800 text-white border-slate-700'
+      };
+      const el = document.createElement('div');
+      el.className = `pointer-events-auto px-4 py-3 rounded-xl border shadow-lg text-xs sm:text-sm font-semibold transition-all duration-200 ${colors[type] || colors.info}`;
+      el.textContent = message;
+      container.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 220);
+      }, 3000);
+    }
+
+    function showUndoToast(bedId) {
+      const container = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className =
+        'pointer-events-auto px-4 py-3 rounded-xl bg-slate-800 text-white border border-slate-700 shadow-lg text-xs sm:text-sm font-semibold flex items-center justify-between gap-3';
+      el.innerHTML = `
+        <span>🗑️ 已刪除 ${escapeHtml(bedId)} 床紀錄</span>
+        <button type="button" onclick="undoLastDelete(); this.parentElement.remove();" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold cursor-pointer">
+          ↩️ 復原刪除
+        </button>
+      `;
+      container.appendChild(el);
+      setTimeout(() => {
+        if (el.parentElement) {
+          el.style.opacity = '0';
+          setTimeout(() => el.remove(), 220);
+        }
+      }, 5000);
+    }
+
+    /**
+     * =========================================================================
+     * 10. KEYBOARD & BOOTSTRAP INITIALIZATION
+     * =========================================================================
+     */
+    const rapidInput = document.getElementById('rapid-digit-input');
+
+    rapidInput.addEventListener('compositionstart', () => {
+      state.isComposing = true;
+    });
+
+    rapidInput.addEventListener('compositionend', () => {
+      state.isComposing = false;
+      const normalized = normalizeDigitsString(rapidInput.value);
+      rapidInput.value = normalized;
+      parseDigitsAndUpdateState(normalized);
+    });
+
+    rapidInput.addEventListener('input', () => {
+      if (state.isComposing) return;
+      const normalized = normalizeDigitsString(rapidInput.value);
+      if (rapidInput.value !== normalized) {
+        rapidInput.value = normalized;
+      }
+      parseDigitsAndUpdateState(normalized);
+    });
+
+    rapidInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.keyCode === 13) {
+        e.preventDefault();
+        e.stopPropagation();
+        state.isComposing = false;
+        saveCurrentBedAndAdvance();
+      }
+    });
+
+    // Expose functions to global window for inline HTML event attributes
+    Object.assign(window, {
+      selectWardBed,
+      advanceToNextUnfilledBed,
+      toggleActiveBedEmpty,
+      setBedFilter,
+      setInputMode,
+      applyQuickPreset,
+      clearRapidInputBox,
+      handleBracketToggle,
+      setBehaviorTarget,
+      toggleBehaviorChip,
+      removeBehaviorFromTarget,
+      addCustomBehavior,
+      toggleMoreBehaviors,
+      toggleTimelineAccordion,
+      startTimelineDrag,
+      continueTimelineDrag,
+      handleTimelineTouchStart,
+      nudgeIntervalEdge,
+      saveCurrentBedAndAdvance,
+      copyCurrentOutput,
+      copySingleStagedRecord,
+      copyAllStagedRecords,
+      loadStagedIntoEditor,
+      startInlineEdit,
+      cancelInlineEdit,
+      saveInlineEdit,
+      deleteStagedRecord,
+      undoLastDelete,
+      handleClearAllStagedClick,
+      openSyncModal,
+      closeSyncModal,
+      connectFirebaseFromModal,
+      disconnectFirebaseToLocal,
+      copyShareableSyncUrl,
+      handleShiftCodeChange,
+      handleWorkstationChange,
+      toggleThemeMode
+    });
+
+    // Bootstrap app on DOM ready
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Check URL hash for shared sync state
+      let sharedFbConfig = null;
+      if (window.location.hash.startsWith('#sync=')) {
+        try {
+          const encoded = window.location.hash.slice(6);
+          const parsed = JSON.parse(decodeURIComponent(atob(encoded)));
+          if (parsed.shiftCode) state.shiftCode = parsed.shiftCode;
+          if (parsed.fbConfig) sharedFbConfig = parsed.fbConfig;
+        } catch (e) {}
+      }
+
+      document.getElementById('shift-code-input').value = state.shiftCode;
+      document.getElementById('workstation-input').value = state.workstationName;
+
+      loadRecordsFromLocal();
+      renderBehaviorUi();
+      refreshEditorOutputs();
+      renderAllBedViews();
+
+      // Auto-connect saved or shared Firebase config if present
+      if (!sharedFbConfig) {
+        try {
+          const savedRaw = localStorage.getItem('ns_firebase_config');
+          if (savedRaw) sharedFbConfig = JSON.parse(savedRaw);
+        } catch (e) {}
+      }
+      if (sharedFbConfig) {
+        await initCloudFirestore(sharedFbConfig, true);
+      }
+
+      rapidInput.focus();
+    });
+  </script>
+</body>
+</html>
